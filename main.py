@@ -1,7 +1,10 @@
-from os import path
+
+
+
+from creds import username, password, like_limit
 
 import time
-from creds import username, password
+from os import path
 from playwright.sync_api import Playwright, sync_playwright
 
 home = path.dirname(path.abspath(__file__)) + "/"
@@ -22,13 +25,8 @@ if not path.isfile(home + "cookie.json"):
         # ---------------------
         context.close()
         browser.close()
-
-
     with sync_playwright() as playwright:
         run(playwright)
-
-
-
 
 
 def run(playwright: Playwright) -> None:
@@ -43,30 +41,27 @@ def run(playwright: Playwright) -> None:
     page = context.new_page()
     page.goto(f"https://twitter.com/{username}/with_replies")
 
-    scroll, repeat, repeatlist = 500, 0, []
 
+    if "Something went wrong. Try reloading." in page.inner_text('body'):
+        print("text found in main run : Something went wrong. Try reloading.")
+        context.close()
+        browser.close()
+        return
+
+    scroll, repeat, repeatlist = 500, 0, []
     while True:
         try:
 
-            if "Something went wrong. Try reloading." in page.inner_text('body'):
-                print("text found in run-crawl : Something went wrong. Try reloading.")
-                context.close()
-                browser.close()
-                return
-
-            page.wait_for_selector('[data-testid="tweet"]')
+            page.wait_for_selector('[data-testid="tweet"]', timeout=2000)
             tweets = page.query_selector_all('[data-testid="tweet"]')
+
             for tweet in tweets:
-
                 tweet_link = tweet.query_selector('a[href*="/status/"]')
-
-
                 if tweet_link:
                     tweet_link = tweet_link.get_attribute('href')
                     name = tweet_link.split("/")[1]
 
                     if name != username:
-                        print(name, username)
                         continue
 
                     if tweet_link in repeatlist:
@@ -85,37 +80,21 @@ def run(playwright: Playwright) -> None:
                 if tweet_like:
                     tweet_like = tweet_like.inner_text()
 
+                    try:
+                        tweet_like = int(tweet_like)
+                    except:
+                        if type(tweet_like) == str and tweet_like == "":
+                            tweet_like = 0
 
                     try:
-                        if tweet_like == "":
-                            continue
-                        elif int(tweet_like) < 30:
-
-                            # print(tweet_like)
-                            # print(tweet_text)
-                            # input("go ?")
-                            print(tweet_text + " , got deleted" + "like : " + tweet_like)
-                            # time.sleep(1)
-
+                        if tweet_like < like_limit and tweet_text != None:
                             page.get_by_label(tweet_text).get_by_test_id("caret").click()
-                            
-                            # time.sleep(1)
-
-                            # page.get_by_text("Delete").click()
                             page.get_by_test_id("Dropdown").get_by_text("Delete").click()
-                            # time.sleep(1)
-
-                            
                             page.get_by_test_id("confirmationSheetConfirm").click()
-                            time.sleep(1)
-
-
+                            time.sleep(0.1)
 
                     except Exception as error:
                         print("error in deletion: ", str(error))
-
-
-
 
                 # tweet_repost = tweet.query_selector('[data-testid="retweet"] span')
                 # if tweet_repost:
@@ -130,22 +109,15 @@ def run(playwright: Playwright) -> None:
                 #     tweet_mention = None
                 # tweet_time = tweet.query_selector('time')
 
-
-
-            page.evaluate(f"window.scrollTo(0, {scroll})")  # Scroll the page
-            scroll += 1300
         except Exception as error:
             print(f"error in run-crawl, error :\n{str(error)}")
-            context.close()
-            browser.close()
-            return
 
-
+        page.evaluate(f"window.scrollTo(0, {scroll})")  # Scroll the page
+        scroll += 1200
 
         if repeat > 100:
-            print("done----------------------------------")
+            time.sleep(5)
             break
-
 
     # ---------------------
     context.close()
@@ -155,6 +127,3 @@ def run(playwright: Playwright) -> None:
 if __name__ == "__main__":
         with sync_playwright() as playwright:
             run(playwright)
-
-
-
