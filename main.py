@@ -1,6 +1,6 @@
 from os import path
 
-from datetime import datetime
+import time
 from creds import username, password
 from playwright.sync_api import Playwright, sync_playwright
 
@@ -28,38 +28,28 @@ if not path.isfile(home + "cookie.json"):
         run(playwright)
 
 
-def convert_to_local_time(utc_time):
-    utc_dt = datetime.strptime(utc_time, "%Y-%m-%dT%H:%M:%S.%fZ")
-    utc_dt = utc_dt.replace(tzinfo=timezone('UTC'))
-    local_dt = utc_dt.astimezone(timezone('Asia/Tehran'))
-    return local_dt
 
 
-def run(playwright: Playwright, update, user, scroltime) -> None:
-    browser = playwright.chromium.launch(headless=True)
+
+def run(playwright: Playwright) -> None:
+    browser = playwright.chromium.launch(headless=False)
     context = browser.new_context()
 
-    with open(home + "cookies/", encoding='utf-8') as file:
+    with open(home + "cookie.json", encoding='utf-8') as file:
         from json import load
         cookies = load(file)["cookies"]
 
     context.add_cookies(cookies)
     page = context.new_page()
-    page.goto(f"https://twitter.com/{user}", timeout=30000)
+    page.goto(f"https://twitter.com/{username}/with_replies")
 
-    scroll, repeat = 500, 0
+    scroll, repeat, repeatlist = 500, 0, []
 
-    for _ in range(scroltime):
+    while True:
         try:
-            if "Something went wrong. Try reloading." in page.inner_text('body'):
-                update.message.reply_text(
-                    f"text found in run-crawl : Something went wrong. Try reloading.\ncookie : {cookie}\nuser : {user}")
-                context.close()
-                browser.close()
-                return
 
-            if "These posts are protected" in page.inner_text('body'):
-                update.message.reply_text(f"text found in run-crawl : page is private\n user : {user}")
+            if "Something went wrong. Try reloading." in page.inner_text('body'):
+                print("text found in run-crawl : Something went wrong. Try reloading.")
                 context.close()
                 browser.close()
                 return
@@ -68,24 +58,71 @@ def run(playwright: Playwright, update, user, scroltime) -> None:
             tweets = page.query_selector_all('[data-testid="tweet"]')
             for tweet in tweets:
 
+                tweet_link = tweet.query_selector('a[href*="/status/"]')
+
+
+                if tweet_link:
+                    tweet_link = tweet_link.get_attribute('href')
+                    name = tweet_link.split("/")[1]
+
+                    if name != username:
+                        print(name, username)
+                        continue
+
+                    if tweet_link in repeatlist:
+                        repeat += 1
+                    else:
+                        repeat = 0
+                        repeatlist.append(tweet_link)
+
+                tweet_text = tweet.query_selector('[data-testid="tweetText"]')
+                if tweet_text:
+                    tweet_text = tweet_text.inner_text()
+                else:
+                    tweet_text = None
+
                 tweet_like = tweet.query_selector('[data-testid="like"] span')
                 if tweet_like:
                     tweet_like = tweet_like.inner_text()
-                else:
-                    tweet_like = None
+
+
+                    try:
+                        if tweet_like == "":
+                            continue
+                        elif int(tweet_like) < 30:
+
+                            # print(tweet_like)
+                            # print(tweet_text)
+                            # input("go ?")
+                            print(tweet_text + " , got deleted" + "like : " + tweet_like)
+                            # time.sleep(1)
+
+                            page.get_by_label(tweet_text).get_by_test_id("caret").click()
+                            
+                            # time.sleep(1)
+
+                            # page.get_by_text("Delete").click()
+                            page.get_by_test_id("Dropdown").get_by_text("Delete").click()
+                            # time.sleep(1)
+
+                            
+                            page.get_by_test_id("confirmationSheetConfirm").click()
+                            time.sleep(1)
 
 
 
-                # tweet_text = tweet.query_selector('[data-testid="tweetText"]')
-                # if tweet_text:
-                #     tweet_text = tweet_text.inner_text()
-                # else:
-                #     tweet_text = None
+                    except Exception as error:
+                        print("error in deletion: ", str(error))
+
+
+
+
                 # tweet_repost = tweet.query_selector('[data-testid="retweet"] span')
                 # if tweet_repost:
                 #     tweet_repost = tweet_repost.inner_text()
                 # else:
                 #     tweet_repost = None
+                    
                 # tweet_mention = tweet.query_selector('[data-testid="reply"] span')
                 # if tweet_mention:
                 #     tweet_mention = tweet_mention.inner_text()
@@ -98,11 +135,16 @@ def run(playwright: Playwright, update, user, scroltime) -> None:
             page.evaluate(f"window.scrollTo(0, {scroll})")  # Scroll the page
             scroll += 1300
         except Exception as error:
-            update.message.reply_text(f"error in run-crawl, error :\n{str(error)}")
+            print(f"error in run-crawl, error :\n{str(error)}")
             context.close()
             browser.close()
             return
 
+
+
+        if repeat > 100:
+            print("done----------------------------------")
+            break
 
 
     # ---------------------
@@ -110,14 +152,9 @@ def run(playwright: Playwright, update, user, scroltime) -> None:
     browser.close()
 
 
-def get_tweets(update, username, scroltime):
-    try:
+if __name__ == "__main__":
         with sync_playwright() as playwright:
-            run(playwright, update, username, scroltime)
-        return True
-    except Exception as error:
-        update.message.reply_text(f"error in get-tweet, error :\n{str(error)}")
-        return False
+            run(playwright)
 
-# while True:
-#     get_tweets(None, "garshaspy", 3)
+
+
