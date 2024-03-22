@@ -61,7 +61,7 @@ def run(playwright: Playwright) -> None:
                     tweet_link = tweet_link.get_attribute('href')
                     name = tweet_link.split("/")[1]
 
-                    if name != username:
+                    if name.lower() != username.lower():
                         continue
 
                     if tweet_link in repeatlist:
