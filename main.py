@@ -66,6 +66,7 @@ def run(playwright: Playwright) -> None:
 
                     if tweet_link in repeatlist:
                         repeat += 1
+                        continue
                     else:
                         repeat = 0
                         repeatlist.append(tweet_link)
