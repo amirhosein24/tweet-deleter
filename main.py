@@ -1,4 +1,4 @@
-from creds import username, password, like_limit
+from creds import username, password, like_limit, profile_name
 
 import time
 from os import path
@@ -41,7 +41,7 @@ def run(playwright: Playwright) -> None:
     for _ in range(50):
         page.evaluate(f"window.scrollTo(0, {scroll})")  # Scroll the page
         scroll += 1200
-        time.sleep(0.3)
+        time.sleep(0.5)
 
     while True:
         try:
@@ -63,41 +63,41 @@ def run(playwright: Playwright) -> None:
                             tweet_like = tweet_like.inner_text()
                             if tweet_like == "" or int(tweet_like) < like_limit:
 
+                                # try:
+                                #     page_tweet = context.new_page()
+                                #     page_tweet.goto(
+                                #         "https://twitter.com" + tweet_link)
+
+                                tweet_text = tweet.query_selector(
+                                    '[data-testid="tweetText"]')
+                                if tweet_text:
+                                    tweet_text = tweet_text.inner_text()
+                                else:
+                                    continue
+
                                 try:
-                                    page_tweet = context.new_page()
-                                    page_tweet.goto(
-                                        "https://twitter.com" + tweet_link)
 
-                                    tweet_text = tweet.query_selector(
-                                        '[data-testid="tweetText"]')
-                                    if tweet_text:
-                                        tweet_text = tweet_text.inner_text()
-                                    else:
-                                        continue
+                                    if tweet_text == "":
+                                        tweet_text = profile_name + "@" + username
 
-                                    try:
+                                    page.get_by_label(tweet_text).get_by_test_id(
+                                        "caret").first.click(timeout=1000)
+                                    page.get_by_test_id(
+                                        "Dropdown").get_by_text("Delete").click(timeout=1000)
+                                    page.get_by_test_id(
+                                        "confirmationSheetConfirm").click(timeout=1000)
+                                    # time.sleep(0.1)
 
-                                        if tweet_text == "":
-                                            tweet_text = "گرشاسپـــ@garshaspz"
+                                except Exception as error:
+                                    print("error in deletion: ", str(error))
+                                    pass
 
-                                        page_tweet.get_by_label(tweet_text).get_by_test_id(
-                                            "caret").last.click()
-                                        page_tweet.get_by_test_id(
-                                            "Dropdown").get_by_text("Delete").click()
-                                        page_tweet.get_by_test_id(
-                                            "confirmationSheetConfirm").click()
-                                        time.sleep(0.1)
+                                # finally:
+                                #     page_tweet.close()
 
-                                    except Exception as error:
-                                        print("error in deletion: ", str(error))
-                                        pass
-
-                                finally:
-                                    page_tweet.close()
-
+            scroll += 2200
             page.evaluate(f"window.scrollTo(0, {scroll})")
-            scroll += 2000
-            time.sleep(0.5)
+            # time.sleep(0.5)
 
         except Exception as error:
             print(f"error in run-crawl, error :\n{str(error)}")
